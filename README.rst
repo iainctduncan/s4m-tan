@@ -9,7 +9,4 @@ that are enabled well by Scheme For Max.
 
 I am making this public so that anyone interested can benefit from the code.
 
-Iain Duncan
-University of Victoria
-Victoria BC, Canada
-January, 2021
+Iain Duncan, University of Victoria Music
