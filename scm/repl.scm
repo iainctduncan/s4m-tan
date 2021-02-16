@@ -25,11 +25,27 @@
 (define l #f)
 
 (begin 
-  (define c (loop-player 'seq-len 4))
+  (define c (loop-player))
   ;(c 'set-par :len 3 '(111 222))
-  (c 'set-seq 0 '((480 1 240 60 90) (240 1 120 48 127) (480 1 440 67 90) (240 1 240 60 90))) 
+  (c 'set-seq 0 '((480 1 240 60 90) (240 1 120 67 90) (480 1 440 63 90) (240 1 240 72 90))) 
+)
+(begin 
+  (define c2 (loop-player))
+  ;(c 'set-par :len 3 '(111 222))
+  (c2 'set-seq 0 '((480 1 240 60 90) (240 1 120 67 90) (480 1 440 63 90) (240 1 240 72 90))) 
+)
+(begin 
+  (define c3 (loop-player))
+  ;(c 'set-par :len 3 '(111 222))
+  (c3 'set-seq 0 '((480 1 240 62 90) (240 1 120 67 90) (480 1 440 63 90) (240 1 240 72 90))) 
+  (c3 'start)
+  (c3 'stop)
 )
 
+(c2 'start)
+(c2 'stop)
+
+(c 'set 'loop-len 3)
 (c 'get 'seq-data)
 (c 'run)
 (c 'start)
@@ -39,3 +55,4 @@
 
 (sequence? 1)
 
+(random 4)

@@ -44,6 +44,6 @@ Code TODO:
 - make it run through a non-even sequence
 - need to make the update method for updating a sequence with some amount of data
 
-- add a function to get called before playback on the top of each loop pass
-  so it can mutate playback 
+- Done
+  
   

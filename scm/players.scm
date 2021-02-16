@@ -175,11 +175,21 @@
           (set-seq-point index data))
         '())
 
+      ; hook for each top of loop, can mutate state in vars
+      (define (loop-top)
+        (post "loop-top, loop-iter:" loop-iter)
+        (let ((new-loop-len (+ 2 (random 3))))
+          (post "... next loop-len:" new-loop-len)
+          (set! loop-len new-loop-len)))
+
       ; run one step
       (define player::run run) ; save previous run method to allow calling
       (define (run)
         (post "loop-player run, loop-step: " loop-step)    
-                    
+        ; if top of loop, call the loop-top function
+        (if (= loop-iter 0)
+          (loop-top))
+
         (let ((event-len  ((seq-data :len)  loop-step))
               (gate       ((seq-data :gate) loop-step))
               (dur        ((seq-data :dur)  loop-step))
