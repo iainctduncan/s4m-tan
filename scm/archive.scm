@@ -1,15 +1,4 @@
-(post "instruments.scm")
-
-(load-from-max "process-helpers.scm")
-
-;; a csound score style note player
-; assumes time and dur are ticks, pitch is midi note num, pfields are 0-127
-(define (play-note time dur vel pitch . pfields)
-  ;(post "play-note: " time dur vel pitch pfields)
-  (let ((note-num pitch)
-        (dur-ms (ticks->ms dur)))
-    (delay-t time (lambda x (out 0 (list note-num vel dur-ms)))))
-)
+; file to save previous versions
 
 ;; process that plays through a sequence, using only args
 (define process

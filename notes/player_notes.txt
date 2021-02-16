@@ -1,0 +1,49 @@
+Notes on the actual players:
+
+
+High level TODO:
+- how to orchestrate them in a piece
+- how to put proper sequences in them
+
+- could just start with a step sequencer version for the players?
+- I like the idea of time values being separate from other things
+  - so we can experiment with rhythms being decoupled from pitch, etc
+
+- seq-length arg can specify how long sequences are, and run an init function
+  to set them up, which it uses for all sequences  
+
+- example calls
+  (p 'loop-length :p4 3)
+  
+
+- data 
+  - length: init arg for initializing sequence length
+  loop-length :field 
+  loop-offset :  
+
+  seq :len - event length in ticks - for a regular step sequencer, this would be a constant
+  seq :dur - actual note duration 
+  seq :gate - a mute for this event (time elapses, but function doesn't get called)
+  seq :note - midi note number
+  seq :vel - midi vel
+  seq :p5 .. :p8 - can be named whatever we want
+
+  to-seq par index '(...list of values...)
+
+(a 'to-seq :len 0 '(480 90 40 90)
+
+Code TODO:
+- prevent from crashing if tries to read out of range 
+- creat init function that sets up all these vectors
+  - 'seq to be hashtable of vectors
+- let's get it going wihtout separate loop controls first 
+
+- got init args working ok
+
+- NEXT: make this play some notes
+- make it run through a non-even sequence
+- need to make the update method for updating a sequence with some amount of data
+
+- add a function to get called before playback on the top of each loop pass
+  so it can mutate playback 
+  

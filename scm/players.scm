@@ -29,20 +29,20 @@
     
     ; loop through the init-args keyword arg list, which is an assoc list of sym/value to set
     ; this allows setting any instance vars from keyword list to constructor
-    (let init-args-loop ((args init-args))
-      (if (not (null? args))
-        (begin 
-          (if (keyword? (car args))
-            ; keywords go into the state dict
-            (set! (state (car args)) (cadr args))
-            ; symbol args go into the private let
-            (varlet env (car args) (cadr args)))
-          (init-args-loop (cddr args)))))
+    (define (set-init-args)
+      (let init-args-loop ((args init-args))
+        (if (not (null? args))
+          (begin 
+            (if (keyword? (car args))
+              ; keywords go into the state dict
+              (set! (state (car args)) (cadr args))
+              ; symbol args go into the private let
+              (varlet env (car args) (cadr args)))
+            (init-args-loop (cddr args)))))
+    )
+    (set-init-args)
 
-    ;* if there is a an 'init method, call it (allows passing in init procs at build time)
-    (if init
-      (init))
-    ;* end constructor logic (until we return the lambda at the bottom)   
+    ;* end base constructor logic (until we return the lambda at the bottom)   
 
     ;* METHODS
     
@@ -98,96 +98,113 @@
 )); end base-player let and define
 
 
-;; example of derived player - not the prettiest, but works and delegates to parent
-(define (derived-player . init-args)
-  ; instantiate parent function, and set env to it's env
-  (letrec* ((parent (apply player init-args)) (env (parent 'get 'env)))
-    (varlet env
-      ; instance vars here as symbol value pairs
-      'looping #t
-    )
-    (with-let env
-      ; add method definitions to the parent env here
-      (define (run)
-        (post "derived-player run" (state :data))    
-        (post "looping: " looping)
-        (if playing
-          (set! cb-handle (delay-t delay-interval run))))
-    )
-    ;; the lambda function returned just delegates to inner process
-    (lambda args (apply parent args))
-)); end derived-player
-
-
-;; clip player is a derived player that plays a certain number of iterations
+;; loop player is a derived player that plays a certain number of iterations
 ;; and then stops, or restarts if in loop mode
 (define (loop-player . init-args)
   ; instantiate parent function, and set env to it's env
-  (letrec* ((parent (apply player init-args)) (env (parent 'get 'env)))
-    (varlet env
-      ; add instance vars here as symbol/value pairs
-      'looping #t
-      'iterations 4
-      'iter 0
+  (letrec* ((parent (apply player init-args)) (self (parent 'get 'env)))
+    (varlet self
+      ; add default instance vars here as symbol/value pairs
+      ; args passed in as init-args can override these
+      'seq-len        16 
+      'looping        #t
+      'loop-times     4
+      'loop-iter      0
+      'loop-len       4
+      'loop-step      0     ; current step within the loop
+      'step-len       480   ; default step length in ticks
+      'seq-data       #f
+      'outlet         0
+      ; order of params when passed a sequence to update a shared index point
+      'param-order  (vector :len :gate :dur :note :vel)
     )
-    (with-let env
-      ; add methods here as symbol/value pairs
+    (with-let self
 
+      ; do programmatic house keeping in here, gets run as last thing in building
+      ; this runs *after* any passed in args are saved
+      (define (init)
+        (post "loop-player init")
+        (set-init-args)
+        (set! seq-data (hash-table
+          :len  (make-vector seq-len step-len)
+          :gate (make-vector seq-len 1)
+          :dur  (make-vector seq-len 480)
+          :note (make-vector seq-len 0)
+          :vel  (make-vector seq-len 0)
+        ))
+        ;(post "seq-data: " seq-data)
+      )
+
+      (define (play-note time-offset dur note-num vel)
+        (post "loop-player::play-note" dur note-num vel)
+        (out outlet (list note-num vel dur)))
+
+      ; add methods here as symbol/value pairs
       (define (start)
-        (set! iter 0)
+        (post "loop-player::start")
+        (set! loop-step 0)
         (set! playing #t)
         (run))
- 
+
+      ; update a param sequence
+      (define (set-pseq index data)
+        (post "loop-player::set-pseq param:" param "index:" index "data:" data)
+        (if (sequence? data)
+          (for-each (lambda (i v) (set! ((seq-data param) i) v)) 
+            (range index (+ index (length data))) data)
+          ; else updating only one point
+          (set! ((seq-data param) index) data))) 
+
+      ; update sequence data at *one* shared index point for all params 
+      (define (set-seq-point index vals)
+        (post "set-seq-items, index:" index "vals:" vals)
+        (for-each
+          (lambda (param param-index)
+            (set! ((seq-data param) index) (vals param-index)))
+          param-order (range 0 (length param-order)))
+        '())
+    
+      ; update sequence data for all params (from list of lists)
+      (define (set-seq index data)
+        (if (sequence? (data 0))
+          ; if data is nested sequence
+          (for-each
+            (lambda (i v) (set-seq-point i (data i))) 
+            (range index (+ index (length data))) data)
+          ; if data is one point
+          (set-seq-point index data))
+        '())
+
+      ; run one step
+      (define player::run run) ; save previous run method to allow calling
       (define (run)
-        (post "clip-player run, iter: " iter)    
-        (cond
-          ((and playing (< iter (- iterations 1)))
-            (begin 
-              (set! iter (+ 1 iter))
-              (set! cb-handle (delay-t time run))))
-          ((and playing looping (= iter (- iterations 1)))
-            (begin 
-              (set! iter 0)
-              (set! cb-handle (delay-t time run))))
-          (else #f)))
+        (post "loop-player run, loop-step: " loop-step)    
+                    
+        (let ((event-len  ((seq-data :len)  loop-step))
+              (gate       ((seq-data :gate) loop-step))
+              (dur        ((seq-data :dur)  loop-step))
+              (note-num   ((seq-data :note) loop-step))
+              (vel        ((seq-data :vel)  loop-step))
+              (time-offset 0))
+ 
+          (if (and (= 1 gate) (> dur 0))
+            (play-note time-offset dur note-num vel))
           
+          ; update loop-step counter for next pass
+          (set! loop-step 
+            (if (< loop-step (- loop-len 1)) (+ 1 loop-step) 0))
+          ; if playing, schedule next iteration
+          (if playing
+            (set! cb-handle (delay-t event-len run)))
+       '() 
+      ))
+
+      ; call the init method
+      (init)
     )
     ;; the lambda function returned just delegates to inner process
     (lambda args (apply parent args)))
 ); end clip-player
-
-
-
-
-
-;; example of derived repeater
-(define (child-repeater . init-args)
-  (letrec* ((parent (apply clip-player init-args)) (env (parent 'get-env)))
-    ; definitions here are added to the parent env
-    (with-let env
-      (define foo (lambda () (post "foo!")))
-      (define time 100)
-      (define seq (list 48 50 52 53 54))
-    )
-    ;; actual function returned just delegates to inner process
-    (lambda args (apply parent args))
-)); end my proc
-
-
-
-
-;; grandchild repeater
-(define (grand-child-repeater)
-  (letrec* ((parent (clip-player)) (env (parent 'get-env)))
-    (with-let env
-      (define foo (lambda () (post "grand child foo!")))
-    )
-    (lambda args (apply parent args))
-)); end my proc
-
-;(define p (clip-player ))
-;(define mp (child-repeater))
-;(define gp (grand-child-repeater))
 
 
 
