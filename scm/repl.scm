@@ -4,13 +4,17 @@
 
 (l1a 'start)
 (l1b 'start)
-(l1a 'set-seq 0 '(240 1 100 60 60))
 
+(l1a 'start)
+(l1a 'stop)
 
-(define g1 #f)
-(define r1 (ramp 0 8 1 (lambda(x)(post "ramp out:" x))))
+;(l1a 'ramp 1 1920 3 (lambda(x)(post "env lambda" x)))
 
-(r1 'start)
-(r1 'stop)
-(post g1)
+;(l1a 'ramp 1 1920 3 (lambda(x)(l1a 'set 'vel-factor x)))
 
+; LEFT OFF HERE:
+(l1a 'ramp 1 1920 3 '(set! vel-factor))
+
+(procedure? post)
+
+(append '(1 2) (list 3))

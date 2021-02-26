@@ -122,6 +122,8 @@
       'dur-factor     1     ; duration mult factor for output 
       'time-factor    1     ; time multiplier (event times, not note dur)
       'outlet         0
+      'envelopes      (hash-table)  ; will be gensym handle for key, env-hash for value
+      'abs-ticks      0     ; counter of absolute tick time, for automation envelopes
       ; order of params when passed a sequence to update a shared index point
       'param-order  (vector :len :gate :dur :note :vel)
     )
@@ -155,6 +157,7 @@
         (cancel-delay cb-handle)
         (set! loop-step 0)
         (set! loop-iter 0)
+        (set! abs-ticks 0)
         (set! playing #t)
         (run))
     
@@ -220,14 +223,52 @@
           (set! cb-handle (delay-t replay-after start)))
       )
 
+      (define (ramp start-val dur end-val env-cb)
+        "start a ramp from start to end, running from now until now + dur"
+        ;(post "loop-player::ramp")
+        (let ((env-hash (hash-table   :start-val start-val  :start-ticks abs-ticks  :dur dur  :end-val end-val  :callback env-cb))
+              (env-handle (gensym)))
+          (set! (envelopes env-handle) env-hash)))
+     
+      ; function to process any running ramp envelopes 
+      (define (process-envelope envl-pair)
+        ;(post "process-envelope, abs-ticks:" abs-ticks)
+        ; calculate where the envlelope should be, according to the abs-tick counter 
+        (let* ((envl-handle   (car envl-pair))
+               (envl-hash     (cdr envl-pair))
+               (dur           (envl-hash :dur))  
+               (start-ticks   (envl-hash :start-ticks))
+               (start         (envl-hash :start-val)) 
+               (end           (envl-hash :end-val))
+               (envl-val      (+ start (* (/ (- abs-ticks start-ticks) dur) (- end start))))
+               (envl-cb       (envl-hash :callback)))
+          ;(post "envl-val:" envl-val)
+          ; call the callback function with the envl value
+          (cond 
+            ((procedure? envl-cb)
+              (envl-cb envl-val))
+            ; else we treat it as a list that is the body of a lambda, where x is the env-val
+            ; ie. '(set! vel-factor x) -> ((lambda(x)(set! vel-factor x)) envl-val)
+            ((list? envl-cb)
+              ((lambda (x)(eval envl-cb)) envl-val))
+            (else #f))
+          ; if we have reached the end of the ramp, we chuck the envl
+          (if (= envl-val end)
+            (set! (envelopes envl-handle) #f)))
+      )
+        
+
       ; run one step
       (define player::run run) ; save previous run method to allow calling
       (define (run)
-        ;(post "loop-player run, loop-step: " loop-step)    
+        ;(post "loop-player run, loop-step: " loop-step "abs-ticks:" abs-ticks)    
         ; if top of loop, call the loop-top function
         (if (= loop-step 0)
           (loop-start))
-        
+
+        ; run any automation envelopes
+        (for-each process-envelope envelopes)
+
         (let* (
               (loop-len  (if (= 0 loop-len) (length seq-data) loop-len))
               (step      (+ loop-top (modulo loop-step loop-len)))
@@ -249,10 +290,12 @@
             (if (< loop-step (- loop-len 1)) (+ 1 loop-step) 0))
 
           ; if playing, schedule next iteration
-          (if playing
-            (set! cb-handle (delay-t event-len run)))
-       '() 
-      ))
+          (if playing 
+            (begin
+              (set! cb-handle (delay-t event-len run))
+              (set! abs-ticks (+ abs-ticks event-len))))
+       '()) 
+      )
 
       ; call the init method
       (init)
