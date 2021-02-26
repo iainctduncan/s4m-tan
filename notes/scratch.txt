@@ -1,0 +1,19 @@
+Scratchpad:
+
+what should I higher level sequencing look like?
+
+we need a function list that calls the repeaters
+
+(:1:1:1  1 240 Bf5 90)
+
+- messages to it:
+  'play
+  'cue 
+  'stop
+   
+- simple first implementation could be a hash-table by tick values,
+  on each tick it looks for a list of values for that tick
+
+- bbt ticks working
+  - need to make it play now off either ticks or bbt number
+

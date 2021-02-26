@@ -7,12 +7,9 @@ this should work but doesn't:
 
 (delay-t-eval 0 out 0 '(1 2 3))
 
-;;
-
 - make a way to turn off logging gensym callbacks
 - issue: can't add a *new* symbol using 'set 
 - todo: make a macro for making a repeater
-- something strange happens if we
 
 Notes on making real music:
 
@@ -24,47 +21,9 @@ To add:
 - add base transpose
 
 - make a base velocity for fade outs and fade in
-- figure out how to make ramps over the sequences
+- figure out how to make ramps over the sequences and fade in and out a map function
 
-- loop-len should be allowed to go past the length
-  and then know to do the modulo thing
+- loop-len should be allowed to go past the length and then know to do the modulo thing
 
-- make a repeater that repeats calls to repeaters..
-  (ie sends messages to the repeaters
-
-- next:
-
-clip-player TODO:
-
-- put all state into state dict so that we can easily serialize and deserialize it
-  
-LEFTOFF:
-- overhauled the player classes
-- working on the loop-player, it works, but it should be able to call it's parent objects methods
-  - saving the parent methods under a different name before instantiating works fine though
-  - which I could probably do with a macro too
-  - can use original names, ie player::run where base class is player
-- a macro might enable me to do this??
-
- - fixed
-
-; what I want to make possible with the macro
-(derived-obj loop-player player
-  (fields
-    'a 1
-    'b 2
-  )
-  (define (foo) (body of foo))
-  ; override might not even be necessary, could just add player::foo for all definitions of player to local env
-  (override (run) (....)
-  (override (foo) 
-)
-- that would actually work pretty well, try it out later with macros
-
-- arg, no init method call working
 
   
-Monday todo:
-- get sequences going with time values and pfields
-- make a sequencer that can sequence the repeaters at the high level?
-- what about some kind of linear player

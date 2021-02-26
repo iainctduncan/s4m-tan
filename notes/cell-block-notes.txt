@@ -1,0 +1,7 @@
+
+- I think what would be good is that a cell block can the data in a sequence player
+
+
+- got basic drawing in the cell blocks working
+
+

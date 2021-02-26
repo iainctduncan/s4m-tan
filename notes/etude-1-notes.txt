@@ -1,0 +1,61 @@
+Notes for etude 1
+
+- had a crash when I told it to read during playback... file bug..
+
+- time base offset would be good
+- ability to cut off after certain number of reps
+
+- it would be better if all attributes we want to set in real time used keywords to bypass
+  quoting bs, and allow (l1 'set :foo 1 :bar 2, etc)
+
+- ability to mute too? (ie they keep playing, but making no noise
+  - can be done with the gate 
+
+- add third pattern
+- fades do sound really good, need to figure out how to add those
+- morphing of accent patterns would be good too within the repeater
+
+- need way to say : play twice only, etc
+  - DONE, loop-reps attr
+
+- need velocity offset so can mute patterns while freewheeling
+
+- changing time factor once it's going is nice, we recognize the change
+- fading in and out voices out of sync with their reverb sounds GREAT!
+- should work awesome with synth voices
+- ramps - created ramps
+
+NEXT:
+- add velocity offsets
+- 
+- gates to have automated cut in and out 
+
+- reflect a sequence?
+- play in reverse? - how would that work?
+
+- think I had a garbage collector run and play havoc, need to try having it run all the time
+- also should compare against running the dsp in live instead of in Max (probably better) 
+- I think the ramp really eats processor, probably need graining on it
+  - yup they do, I can run in audio interrupt without them but not with them
+- could try triggering line objects with messages instead
+
+- yes the ramps are expensive, can see the gui doesn't update once it's hammered
+
+- NEXT: 
+  - try giving the ramps a resolution setting
+  - check performance against piping all midi to live instead
+  - cpu use is def lower, sounds like maybe timing gets bad with no audio on in Max??
+- need to make something with perc synced to live to find out if it's ok or not for real
+- overall CPU use is def lower with piping to live, but not sure if timing is still saying fine or not
+- Max sometimes jams out though, don't know why? And then it crashes.. WTF?
+  - could just be that the schedule gets overloaded from the ramps??
+
+- seems to work pretty well with audio on but doing nothing in Max, and piping midi
+  to Live, even with ramps running in Max. BUT I haven't checked with timing lock up like metro on cymbals
+  - this with audio Interupt off
+- nontheless, seems like ramps every ms are dangerous, they overload the scheduler when running once per ms
+- it can get overloaded, so that it can't keep up with scheduler messages
+  - maybe the setting of how many to run at once will help??
+
+- need to test with percussion
+- should check with hooking up to line objects or audio dsp objects for making ramps

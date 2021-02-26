@@ -1,0 +1,24 @@
+Event-score object notes:
+
+Desired interface (will require macros)
+  (define s (event-score (:setting-1 1 :setting-2 2)
+    :1:3  ((r1 'start) (r2 'start))
+    ...
+  ))
+
+- supported messages on event-score
+  'play
+  'cue 
+  'stop
+
+- current interface:
+  (define s (event-score (hash-table)
+    :1:1   (list r1 'start)
+  ))
+
+
+- Issues:
+   
+
+
+

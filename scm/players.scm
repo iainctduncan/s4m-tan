@@ -1,6 +1,7 @@
 (post "clip-player.scm")
 
 (load-from-max "process-helpers.scm")
+(load-from-max "event-score.scm")
 
 ;; a csound score style note player
 ; assumes time and dur are ticks, pitch is midi note num, pfields are 0-127
@@ -108,12 +109,18 @@
       ; args passed in as init-args can override these
       'seq-len        16 
       'looping        #t
-      'loop-times     4
+      'loop-reps      #f    ; if not #f, play only this many times, then stop and reset
+      'replay-after   #f    ; time after which to start all over
       'loop-iter      0
-      'loop-len       4
+      'loop-len       0     ; loop-len of 0 means take from length of seq 
+      'loop-top       0
       'loop-step      0     ; current step within the loop
       'step-len       480   ; default step length in ticks
       'seq-data       #f
+      'transpose      0
+      'vel-factor     1     ; velocity mult factor for ouput
+      'dur-factor     1     ; duration mult factor for output 
+      'time-factor    1     ; time multiplier (event times, not note dur)
       'outlet         0
       ; order of params when passed a sequence to update a shared index point
       'param-order  (vector :len :gate :dur :note :vel)
@@ -136,36 +143,53 @@
       )
 
       (define (play-note time-offset dur note-num vel)
-        (post "loop-player::play-note" dur note-num vel)
-        (out outlet (list note-num vel dur)))
+        ;(post "loop-player::play-note" dur note-num vel)
+        (let ((transposed-note (+ note-num transpose))
+              (vel-out (* vel vel-factor))
+              (dur-out (* dur dur-factor)))
+          (out outlet (list transposed-note vel-out dur-out))))
 
       ; add methods here as symbol/value pairs
       (define (start)
-        (post "loop-player::start")
+        ;(post "loop-player::start")
+        (cancel-delay cb-handle)
         (set! loop-step 0)
+        (set! loop-iter 0)
         (set! playing #t)
         (run))
+    
+      (define (stop)
+        (cancel-delay cb-handle)
+        (set! playing #f))
 
-      ; update a param sequence
+      (define (pause)
+        (cancel-delay cb-handle)
+        (set! playing #f))
+
+      (define (reset)
+        (set! loop-iter 0)
+        (set! loop-step 0))
+
       (define (set-pseq index data)
-        (post "loop-player::set-pseq param:" param "index:" index "data:" data)
+        "update a param sequence with one ptrack data point"
+        ;(post "loop-player::set-pseq param:" param "index:" index "data:" data)
         (if (sequence? data)
           (for-each (lambda (i v) (set! ((seq-data param) i) v)) 
             (range index (+ index (length data))) data)
           ; else updating only one point
           (set! ((seq-data param) index) data))) 
 
-      ; update sequence data at *one* shared index point for all params 
       (define (set-seq-point index vals)
-        (post "set-seq-items, index:" index "vals:" vals)
+        "update sequence data at *one* shared index point for all params"
+        ;(post "set-seq-items, index:" index "vals:" vals)
         (for-each
           (lambda (param param-index)
             (set! ((seq-data param) index) (vals param-index)))
           param-order (range 0 (length param-order)))
         '())
     
-      ; update sequence data for all params (from list of lists)
       (define (set-seq index data)
+        "update sequence data points for all params from list of lists"
         (if (sequence? (data 0))
           ; if data is nested sequence
           (for-each
@@ -176,33 +200,54 @@
         '())
 
       ; hook for each top of loop, can mutate state in vars
-      (define (loop-top)
-        (post "loop-top, loop-iter:" loop-iter)
-        (let ((new-loop-len (+ 2 (random 3))))
-          (post "... next loop-len:" new-loop-len)
-          (set! loop-len new-loop-len)))
+      (define (loop-start)
+        ;(post "loop-start, loop-iter:" loop-iter "loop-reps:" loop-reps)
+        '())
+
+      ; called on last step of loop, after playback, before scheduling next step
+      (define (loop-end)
+        ;(post "loop-end, loop-iter:" loop-iter)
+        (inc! loop-iter)
+        (if (and loop-reps (= loop-iter loop-reps))
+          (loop-reps-end))
+      )
+
+      ; callback when loop-reps are done, can be used to reschedule later
+      (define (loop-reps-end)
+        ;(post "loop-reps-end")
+        (stop)
+        (if replay-after
+          (set! cb-handle (delay-t replay-after start)))
+      )
 
       ; run one step
       (define player::run run) ; save previous run method to allow calling
       (define (run)
-        (post "loop-player run, loop-step: " loop-step)    
+        ;(post "loop-player run, loop-step: " loop-step)    
         ; if top of loop, call the loop-top function
-        (if (= loop-iter 0)
-          (loop-top))
-
-        (let ((event-len  ((seq-data :len)  loop-step))
-              (gate       ((seq-data :gate) loop-step))
-              (dur        ((seq-data :dur)  loop-step))
-              (note-num   ((seq-data :note) loop-step))
-              (vel        ((seq-data :vel)  loop-step))
+        (if (= loop-step 0)
+          (loop-start))
+        
+        (let* (
+              (loop-len  (if (= 0 loop-len) (length seq-data) loop-len))
+              (step      (+ loop-top (modulo loop-step loop-len)))
+              (event-len  (* ((seq-data :len) step) time-factor))
+              (gate       ((seq-data :gate) step))
+              (dur        (* ((seq-data :dur) step) time-factor))
+              (note-num   ((seq-data :note) step))
+              (vel        ((seq-data :vel)  step))
               (time-offset 0))
  
           (if (and (= 1 gate) (> dur 0))
             (play-note time-offset dur note-num vel))
-          
-          ; update loop-step counter for next pass
+         
+          ; if this was the last step, call loop-end
+          (if (= loop-step (dec loop-len))
+            (loop-end))
+          ; update loop-step counter for next pass (rolls over to zero at end)
           (set! loop-step 
             (if (< loop-step (- loop-len 1)) (+ 1 loop-step) 0))
+
           ; if playing, schedule next iteration
           (if playing
             (set! cb-handle (delay-t event-len run)))
@@ -220,4 +265,4 @@
 
 
 
-(post "... clip-player.scm LOADED")
+(post "... players-player.scm LOADED")

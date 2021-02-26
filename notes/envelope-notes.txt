@@ -1,0 +1,15 @@
+
+Notes on implementing control envelopes
+- args: start, end, dur, resolution
+- can register functions in the ramp to run on every pass
+
+- it will schedule itself on every res ticks
+- once it reaches the final value, it stops
+- holds a registry of functions that it will call on every tick to send
+  values to places (ie sets a global variable)
+
+(define e1 (envelope 0 1 (* 8 1920) (lambda(x)(set! g1 x)) ))
+(e1 'start) (e1 'reset) (e1 'add-callback) (e1 'replace-callback)
+
+
+
